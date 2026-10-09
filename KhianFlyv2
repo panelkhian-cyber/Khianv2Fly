@@ -1,0 +1,198 @@
+-- KHIAN FLY V1
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local player = Players.LocalPlayer
+
+local flying, speed, vertical = false, 50, 0
+local bv, bg, conn
+
+-- ========== GUI ==========
+local gui = Instance.new("ScreenGui")
+gui.Name = "KhianFlyV1"
+gui.ResetOnSpawn = false
+gui.Parent = player:WaitForChild("PlayerGui")
+
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 210, 0, 210)
+frame.Position = UDim2.new(0.05, 0, 0.3, 0)
+frame.BackgroundColor3 = Color3.fromRGB(18, 18, 24)
+frame.BorderSizePixel = 0
+frame.Active, frame.Draggable = true, true
+frame.Parent = gui
+
+local frameCorner = Instance.new("UICorner", frame)
+frameCorner.CornerRadius = UDim.new(0, 14)
+
+local frameStroke = Instance.new("UIStroke", frame)
+frameStroke.Thickness = 2.5
+frameStroke.Color = Color3.fromRGB(255, 0, 100)
+
+local bgGradient = Instance.new("UIGradient", frame)
+bgGradient.Color = ColorSequence.new(Color3.fromRGB(30, 30, 42), Color3.fromRGB(12, 12, 16))
+bgGradient.Rotation = 90
+
+-- Title (animated rainbow gradient)
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, 0, 0, 38)
+title.BackgroundTransparency = 1
+title.Text = "KHIAN FLY V2"
+title.TextColor3 = Color3.new(1, 1, 1)
+title.Font = Enum.Font.GothamBlack
+title.TextSize = 22
+title.Parent = frame
+
+local titleGradient = Instance.new("UIGradient", title)
+titleGradient.Color = ColorSequence.new({
+	ColorSequenceKeypoint.new(0.00, Color3.fromRGB(255, 0, 100)),
+	ColorSequenceKeypoint.new(0.20, Color3.fromRGB(255, 170, 0)),
+	ColorSequenceKeypoint.new(0.40, Color3.fromRGB(80, 255, 80)),
+	ColorSequenceKeypoint.new(0.60, Color3.fromRGB(0, 220, 255)),
+	ColorSequenceKeypoint.new(0.80, Color3.fromRGB(160, 80, 255)),
+	ColorSequenceKeypoint.new(1.00, Color3.fromRGB(255, 0, 100)),
+})
+
+-- Animated divider line
+local line = Instance.new("Frame")
+line.Size = UDim2.new(1, -24, 0, 2)
+line.Position = UDim2.new(0, 12, 0, 40)
+line.BorderSizePixel = 0
+line.BackgroundColor3 = Color3.new(1, 1, 1)
+line.Parent = frame
+Instance.new("UICorner", line).CornerRadius = UDim.new(1, 0)
+
+local lineGradient = Instance.new("UIGradient", line)
+lineGradient.Color = titleGradient.Color
+
+-- ========== Helpers ==========
+local BASE = Color3.fromRGB(38, 38, 52)
+local HOVER = Color3.fromRGB(58, 58, 78)
+
+local function styleHover(obj, base, hover)
+	obj.MouseEnter:Connect(function()
+		TweenService:Create(obj, TweenInfo.new(0.15), {BackgroundColor3 = hover}):Play()
+	end)
+	obj.MouseLeave:Connect(function()
+		TweenService:Create(obj, TweenInfo.new(0.15), {BackgroundColor3 = base}):Play()
+	end)
+end
+
+local strokes = {frameStroke}
+
+local function makeBtn(text, x, y, w, h)
+	local b = Instance.new("TextButton")
+	b.Text = text
+	b.Size = UDim2.new(0, w, 0, h)
+	b.Position = UDim2.new(0, x, 0, y)
+	b.BackgroundColor3 = BASE
+	b.TextColor3 = Color3.fromRGB(240, 240, 240)
+	b.Font = Enum.Font.GothamBold
+	b.TextSize = 14
+	b.AutoButtonColor = false
+	b.BorderSizePixel = 0
+	b.Parent = frame
+	Instance.new("UICorner", b).CornerRadius = UDim.new(0, 8)
+	local s = Instance.new("UIStroke", b)
+	s.Thickness = 1.5
+	s.Color = Color3.fromRGB(255, 0, 100)
+	table.insert(strokes, s)
+	styleHover(b, BASE, HOVER)
+	return b
+end
+
+-- ========== Controls ==========
+local toggle = makeBtn("Fly: OFF", 15, 54, 180, 38)
+local up = makeBtn("▲ UP", 15, 102, 85, 38)
+local down = makeBtn("▼ DOWN", 110, 102, 85, 38)
+
+local box = Instance.new("TextBox")
+box.Size = UDim2.new(0, 180, 0, 38)
+box.Position = UDim2.new(0, 15, 0, 150)
+box.BackgroundColor3 = BASE
+box.TextColor3 = Color3.fromRGB(240, 240, 240)
+box.PlaceholderText = "Speed (1-100)"
+box.PlaceholderColor3 = Color3.fromRGB(150, 150, 165)
+box.Text = tostring(speed)
+box.ClearTextOnFocus = true
+box.Font = Enum.Font.GothamBold
+box.TextSize = 14
+box.BorderSizePixel = 0
+box.Parent = frame
+Instance.new("UICorner", box).CornerRadius = UDim.new(0, 8)
+local boxStroke = Instance.new("UIStroke", box)
+boxStroke.Thickness = 1.5
+boxStroke.Color = Color3.fromRGB(255, 0, 100)
+table.insert(strokes, boxStroke)
+
+box.FocusLost:Connect(function()
+	local n = tonumber(box.Text)
+	if n then
+		speed = math.clamp(math.floor(n), 1, 100)
+	end
+	box.Text = tostring(speed)
+end)
+
+-- ========== Color animation ==========
+RunService.Heartbeat:Connect(function()
+	if not gui.Parent then return end
+	local t = tick()
+	local color = Color3.fromHSV((t * 0.2) % 1, 0.85, 1)
+	for _, s in ipairs(strokes) do
+		s.Color = color
+	end
+	titleGradient.Rotation = (t * 60) % 360
+	lineGradient.Offset = Vector2.new(math.sin(t * 2) * 0.5, 0)
+end)
+
+-- ========== Fly logic ==========
+local function stop()
+	flying = false
+	vertical = 0
+	if conn then conn:Disconnect() conn = nil end
+	if bv then bv:Destroy() bv = nil end
+	if bg then bg:Destroy() bg = nil end
+	local char = player.Character
+	local hum = char and char:FindFirstChildOfClass("Humanoid")
+	if hum then hum.PlatformStand = false end
+	toggle.Text = "Fly: OFF"
+	toggle.TextColor3 = Color3.fromRGB(240, 240, 240)
+end
+
+local function start()
+	local char = player.Character
+	local hrp = char and char:FindFirstChild("HumanoidRootPart")
+	local hum = char and char:FindFirstChildOfClass("Humanoid")
+	if not (hrp and hum) then return end
+	flying = true
+	toggle.Text = "Fly: ON"
+	toggle.TextColor3 = Color3.fromRGB(90, 255, 130)
+	hum.PlatformStand = true
+
+	bv = Instance.new("BodyVelocity", hrp)
+	bv.MaxForce = Vector3.new(1e5, 1e5, 1e5)
+	bv.Velocity = Vector3.zero
+	bg = Instance.new("BodyGyro", hrp)
+	bg.MaxTorque = Vector3.new(1e5, 1e5, 1e5)
+	bg.P = 9000
+
+	conn = RunService.RenderStepped:Connect(function()
+		local cam = workspace.CurrentCamera
+		local rel = cam.CFrame:VectorToObjectSpace(hum.MoveDirection)
+		local dir = cam.CFrame.RightVector * rel.X + cam.CFrame.LookVector * -rel.Z
+		bv.Velocity = dir * speed + Vector3.new(0, vertical * speed, 0)
+		bg.CFrame = cam.CFrame
+	end)
+end
+
+toggle.MouseButton1Click:Connect(function()
+	if flying then stop() else start() end
+end)
+
+up.MouseButton1Down:Connect(function() vertical = 1 end)
+up.MouseButton1Up:Connect(function() vertical = 0 end)
+up.MouseLeave:Connect(function() if vertical == 1 then vertical = 0 end end)
+down.MouseButton1Down:Connect(function() vertical = -1 end)
+down.MouseButton1Up:Connect(function() vertical = 0 end)
+down.MouseLeave:Connect(function() if vertical == -1 then vertical = 0 end end)
+
+player.CharacterAdded:Connect(stop)
